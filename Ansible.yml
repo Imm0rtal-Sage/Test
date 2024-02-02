@@ -10,7 +10,7 @@
       clone: yes
 
    - name: Decrypt Users File
-     shell: ansible-vault decrypt --vault-id /skill_hmao/Users/privvars.yml
+     shell: ansible-vault decrypt --vault-id DkGVbp53ArVV /skill_hmao/Users/privvars.yml
 
    - name: Add Debian Hosts
      add_host:
@@ -48,7 +48,7 @@
    - name: Update CentOS
      yum: 
        update_cache: true
-     when: "'centos' in group_names"
+     when: "'Centos' in group_names"
 
    - name: "Install git on debian"
      apt:
@@ -60,7 +60,7 @@
      yum:
       name: "git"
       disable_gpg_check: yes
-     when: "'centos' in group_names"
+     when: "'Centos' in group_names"
 
    - name: "Include Vars From software.yaml"
      include_vars: /skill_hmao/software.yaml
@@ -75,7 +75,7 @@
      yum:
       name: "{{ software }}"
       update_cache: yes
-     when: "'centos' in group_names"
+     when: "'Centos' in group_names"
 
    - name: Install Debian
      apt: 
@@ -95,7 +95,7 @@
          - docker-compose
          - firewalld
          - nginx
-     when: "'centos' in group_names"
+     when: "'Centos' in group_names"
 
    - name: Firewalld Enable
      service:
@@ -168,12 +168,12 @@
 
    - name: add docker repo
      shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-     when: "'centos' in group_names"
+     when: "'Centos' in group_names"
 
    - name: install docker-ce on Centos
      yum:
         name: docker-ce
-     when: "'centos' in group_names"
+     when: "'Centos' in group_names"
 
    - name: "Enable and start docker"
      systemd:
