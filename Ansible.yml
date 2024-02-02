@@ -11,6 +11,7 @@
 
    - name: Decrypt Users File
      shell: ansible-vault decrypt --vault-id /skill_hmao/Users/privvars.yml
+
    - name: Add Debian Hosts
      add_host:
        hostname: '{{ item }}'
@@ -42,7 +43,7 @@
    - name: Update Debian
      apt: 
        update_cache: true
-     when: "'debian' in group_names"
+     when: "'Debian' in group_names"
 
    - name: Update CentOS
      yum: 
@@ -53,7 +54,7 @@
      apt:
        name: "git"
        update_cache: yes
-     when: "'debian' in group_names"
+     when: "'Debian' in group_names"
 
    - name: "install git on centos"
      yum:
@@ -68,7 +69,7 @@
      apt:
       name: "{{ software }}"
       update_cache: yes
-     when: "'debian' in group_names"
+     when: "'Debian' in group_names"
 
    - name: "Install software from file for CentOS"
      yum:
@@ -84,7 +85,7 @@
          - docker-compose
          - firewalld
          - nginx
-     when: "'debian' in group_names"
+     when: "'Debian' in group_names"
 
    - name: Install CentOS
      yum: 
