@@ -30,18 +30,18 @@
 
    - name: Update Debian
      apt: 
-     update_cache: true
+       update_cache: true
      when: "'debian' in group_names"
 
    - name: Update CentOS
      yum: 
-     update_cache: true
+       update_cache: true
      when: "'centos' in group_names"
 
    - name: "Install git on debian"
      apt:
-        name: "git"
-        update_cache: yes
+       name: "git"
+       update_cache: yes
      when: "'debian' in group_names"
 
    - name: "install git on centos"
