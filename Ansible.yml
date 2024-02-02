@@ -191,14 +191,14 @@
         - index.html
         - nginx.conf
 
-    - name: Build Image Balance
-      docker_image:
+   - name: Build Image Balance
+     docker_image:
         path: /skillcloud-nginx/balance
         name: balance
         tag: balance
 
-    - name: Build Image Site
-      docker_image:
+   - name: Build Image Site
+     docker_image:
         path: /skillcloud-nginx/site
         name: site
         tag: site
