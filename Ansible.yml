@@ -10,7 +10,7 @@
       clone: yes
 
    - name: Decrypt Users File
-     shell: ansible-vault decrypt --vault-id /skill_hmao/hmao_yarulin/password /skill_hmao/Users/privvars.yml
+     shell: ansible-vault decrypt --vault-id /skill_hmao/hmao-yarulin/password /skill_hmao/Users/privvars.yml
 
    - name: Add Debian Hosts
      add_host:
@@ -50,18 +50,6 @@
        update_cache: true
      when: "'Centos' in group_names"
 
-   - name: "Install git on debian"
-     apt:
-       name: "git"
-       update_cache: yes
-     when: "'Debian' in group_names"
-
-   - name: "install git on centos"
-     yum:
-      name: "git"
-      disable_gpg_check: yes
-     when: "'Centos' in group_names"
-
    - name: "Include Vars From software.yaml"
      include_vars: /skill_hmao/software.yaml
 
@@ -77,6 +65,26 @@
       update_cache: yes
      when: "'Centos' in group_names"
 
+   - name: Include Vars From privvars.yml
+     include_vars:
+        file: /skill_hmao/Users/privvars.yml
+
+   - name: Add Usres From privvars.yml
+     user:
+        name: "{{ item.0 }}"
+        password: "{{ item.1 | password_hash('sha512')}}"
+     with_together:
+         - "{{ skillcloud.users }}"
+         - "{{ skillcloud.passwords }}"
+
+   - name: add authorized key to user
+     authorized_key:
+        user: "{{ item.0 }}"
+        state: present
+        key: "{{ skillcloud.publickey }}"
+     with_together:
+        - "{{ skillcloud.users }}"
+
    - name: Install Debian
      apt: 
       name: "{{ item }}"
@@ -91,8 +99,6 @@
      yum: 
       name: "{{ item }}"
      loop:
-         - docker
-         - docker-compose
          - firewalld
          - nginx
      when: "'Centos' in group_names"
@@ -115,11 +121,6 @@
          - 8080/tcp
          - 1022/tcp
 
-   - name: Restart Firewalld
-     service:
-        name: firewalld
-        state: restarted
-
    - name: Configure SSH server
      lineinfile:
         path: /etc/ssh/sshd_config
@@ -129,34 +130,6 @@
      loop:
         - { regexp: '^#?#Port.*', line: 'Port 1022' }
         - { regexp: '^#?#PubkeyAuthentication.*', line: 'PubkeyAuthentication yes' }
-
-   - name: Restart ssh/sshd
-     service:
-        name: "{{ item }}"
-        state: restarted
-     loop:
-         - ssh
-         - sshd
-
-   - name: Include Vars From privvars.yml
-     include_vars:
-        file: /skill_hmao/Users/privvars.yml
-
-   - name: Add Usres From privvars.yml
-     user:
-        name: "{{ item.0 }}"
-        password: "{{ item.1 | password_hash('sha512')}}"
-     with_together:
-         - "{{ skillcloud.users }}"
-         - "{{ skillcloud.passwords }}"
-
-   - name: add authorized key to user
-     authorized_key:
-        user: "{{ item.0 }}"
-        state: present
-        key: "{{ skillcloud.publickey }}"
-     with_together:
-        - "{{ skillcloud.users }}"
 
    - name: copy sh script
      copy:
@@ -180,6 +153,7 @@
         name: docker
         state: started
         enabled: true
+     when: "'Centos' in group_names"
 
    - name: "Copy to skillcloud-nginx"
      copy:
@@ -193,23 +167,40 @@
         - dockerfile-site
         - index.html
         - nginx.conf
+     when: "'Centos' in group_names"
 
    - name: Build Image Balance
      docker_image:
         path: /skillcloud-nginx/balance
         name: balance
         tag: balance
+     when: "'Centos' in group_names"
 
    - name: Build Image Site
      docker_image:
         path: /skillcloud-nginx/site
         name: site
         tag: site
+     when: "'Centos' in group_names"
 
    - name: docker-compose up
      shell:
         cmd: docker-compose -f docker-compose.yml up -d
         chdir: /skillcloud-nginx
+     when: "'Centos' in group_names"
+
+   - name: Restart Firewalld
+     service:
+        name: firewalld
+        state: restarted
+
+   - name: Restart ssh/sshd
+     service:
+        name: "{{ item }}"
+        state: restarted
+     loop:
+         - ssh
+         - sshd
 
    - name: "Rebiit nachines"
      reboot:
