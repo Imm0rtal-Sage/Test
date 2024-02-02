@@ -1,8 +1,16 @@
 ---
 - name: "Config wartch of mashines"
-  hosts: all
+  hosts: localhost
   become: yes
   tasks:
+   - name: Git Clone
+     git:
+      repo: https://github.com/andgabs/skill_hmao
+      dest: /skill_hmao
+      clone: yes
+
+   - name: Decrypt Users File
+     shell: ansible-vault decrypt --vault-id /skill_hmao/Users/privvars.yml
    - name: Add Debian Hosts
      add_host:
        hostname: '{{ item }}'
@@ -25,6 +33,9 @@
      - PJC-01
      - PJC-02
 
+- name: update cache and isntall package
+  hosts: all
+  tasks:
    - name: Test Connection
      ping:
 
@@ -49,15 +60,6 @@
       name: "git"
       disable_gpg_check: yes
      when: "'centos' in group_names"
-
-   - name: Git Clone
-     git:
-      repo: https://github.com/andgabs/skill_hmao
-      dest: /skill_hmao
-      clone: yes
-
-   - name: Decrypt Users File
-     shell: ansible-vault decrypt --vault-id /skill_hmao/Users/privvars.yml
 
    - name: "Include Vars From software.yaml"
      include_vars: /skill_hmao/software.yaml
