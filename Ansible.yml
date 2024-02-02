@@ -10,7 +10,7 @@
       clone: yes
 
    - name: Decrypt Users File
-     shell: ansible-vault decrypt --vault-id /skill_hmao/Users/privvars.yml
+     shell: ansible-vault decrypt --vault-id /skill_hmao/hmao_yarulin/password /skill_hmao/Users/privvars.yml
 
    - name: Add Debian Hosts
      add_host:
@@ -69,6 +69,13 @@
      apt:
       name: "{{ software }}"
       update_cache: yes
+     when: "'Debian' in group_names"
+
+   - name: "Install software from file for Centos"
+     yum:
+      name: "{{ software }}"
+      update_cache: yes
+     when: "'Centos' in group_names"
 
    - name: Install Debian
      apt: 
@@ -78,6 +85,17 @@
          - docker-compose
          - firewalld
          - nginx
+     when: "'Debian' in group_names"
+
+   - name: Install CentOS
+     yum: 
+      name: "{{ item }}"
+     loop:
+         - docker
+         - docker-compose
+         - firewalld
+         - nginx
+     when: "'Centos' in group_names"
 
    - name: Firewalld Enable
      service:
