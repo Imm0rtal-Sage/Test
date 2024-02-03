@@ -3,6 +3,15 @@
   hosts: localhost
   become: yes
   tasks:
+   - name: Git Clone
+     git:
+      repo: https://github.com/andgabs/skill_hmao
+      dest: /skill_hmao
+      clone: yes
+
+   - name: Decrypt Users File
+     shell: ansible-vault decrypt --vault-id /skill_hmao/hmao-yarulin/password /skill_hmao/Users/privvars.yml
+
    - name: Add Debian Hosts
      add_host:
        hostname: '{{ item }}'
@@ -40,15 +49,6 @@
      yum: 
        update_cache: true
      when: "'Centos' in group_names"
-
-   - name: Git Clone
-     git:
-      repo: https://github.com/andgabs/skill_hmao
-      dest: /skill_hmao
-      clone: yes
-
-   - name: Decrypt Users File
-     shell: ansible-vault decrypt --vault-id /skill_hmao/hmao-yarulin/password /skill_hmao/Users/privvars.yml
 
    - name: "Include Vars From software.yaml"
      include_vars: /skill_hmao/software.yaml
@@ -155,6 +155,11 @@
    - name: run docker socket
      shell: systemctl enable --now docker.socket
 
+   - name: Create directory for nginx
+     file:
+        path: /skillcloud-nginx
+        state: directory
+
    - name: "Copy to skillcloud-nginx"
      copy:
         src: /skill_hmao/{{ item }}
@@ -163,22 +168,20 @@
      with_items:
         - docker-compose.sh
         - docker-compose.yml
-        - dockerfile-balance
-        - dockerfile-site
+        - Dockerfile-balance
+        - Dockerfile-site
         - index.html
         - nginx.conf
 
-   - name: Build Image Balance
-     docker_image:
-        path: /skillcloud-nginx/balance
-        name: balance
-        tag: balance
-
-   - name: Build Image Site
-     docker_image:
-        path: /skillcloud-nginx/site
-        name: site
-        tag: site
+   - name: build docker image site
+     shell: 
+        cmd: docker build -t site:site -f /skillcloud-nginx/Dockerfile-site .
+        chdir: /skillcloud-nginx
+        
+   - name: build docker image balance
+     shell: 
+        cmd: docker build -t balance:balance -f /skillcloud-nginx/Dockerfile-balance .
+        chdir: /skillcloud-nginx
 
    - name: docker-compose up
      shell:
