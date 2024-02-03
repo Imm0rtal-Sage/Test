@@ -155,18 +155,22 @@
 
    - name: run docker socket
      shell: systemctl enable --now docker.socket
+     when: "'Debian' in group_names"
 
    - name: Create directory for nginx
      file:
         path: /skillcloud-nginx
         state: directory
 
+- name: sites
+  hosts: all
+  tasks:
    - name: "Copy to skillcloud-nginx"
      copy:
         src: /skill_hmao/{{ item }}
-        dest: /skillcloud-nginx/{{ item }}
         remote_src: yes
-     with_items:
+        dest: /skillcloud-nginx/{{ item }}
+     loop:
         - docker-compose.sh
         - docker-compose.yml
         - Dockerfile-balance
