@@ -3,15 +3,6 @@
   hosts: localhost
   become: yes
   tasks:
-   - name: Git Clone
-     git:
-      repo: https://github.com/andgabs/skill_hmao
-      dest: /skill_hmao
-      clone: yes
-
-   - name: Decrypt Users File
-     shell: ansible-vault decrypt --vault-id /skill_hmao/hmao-yarulin/password /skill_hmao/Users/privvars.yml
-
    - name: Add Debian Hosts
      add_host:
        hostname: '{{ item }}'
@@ -49,6 +40,15 @@
      yum: 
        update_cache: true
      when: "'Centos' in group_names"
+
+   - name: Git Clone
+     git:
+      repo: https://github.com/andgabs/skill_hmao
+      dest: /skill_hmao
+      clone: yes
+
+   - name: Decrypt Users File
+     shell: ansible-vault decrypt --vault-id /skill_hmao/hmao-yarulin/password /skill_hmao/Users/privvars.yml
 
    - name: "Include Vars From software.yaml"
      include_vars: /skill_hmao/software.yaml
@@ -142,17 +142,16 @@
      shell: sh /docker-compose.sh
 
    - name: add docker repo
-     shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+     command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
      when: "'Centos' in group_names"
 
    - name: install docker-ce on Centos
-     yum:
-        name: docker-ce
+     shell: yum install docker-ce --nobest --skip-broken
      when: "'Centos' in group_names"
 
    - name: run docker service
      shell: systemctl enable --now docker.service
-     
+
    - name: run docker socket
      shell: systemctl enable --now docker.socket
 
