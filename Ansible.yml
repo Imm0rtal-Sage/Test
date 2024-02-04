@@ -166,24 +166,40 @@
         path: /skillcloud-nginx
         state: directory
 
-   - name: "Copy to skillcloud-nginx"
-     copy:
-        src: /skill_hmao/{{ item }}
-        dest: /skillcloud-nginx/{{ item }}
-     loop:
-        - docker-compose.sh
-        - docker-compose.yml
-        - Dockerfile-balance
-        - Dockerfile-site
-        - index.html
-        - nginx.conf
+#   - name: "Copy to skillcloud-nginx"
+ #    copy:
+  #      src: /skill_hmao/{{ item }}
+   #     dest: /skillcloud-nginx/{{ item }}
+    # loop:
+     #   - docker-compose.sh
+      #  - docker-compose.yml
+       # - Dockerfile-balance
+        #- Dockerfile-site
+        #- index.html
+        #- nginx.conf
 
-   - name: Image Site
+   - name: Copy Dockerfile
+     copy: 
+       # Prepare docker-compose
+       - src=docker-compose.yml dest=/skillcloud-nginx/docker-compose.yml
+       # Prepare skillcloud-nginx
+       - src=index.html dest=/skillcloud-nginx/site/index.html
+       - src=Dockerfile-site dest=/skillcloud-nginx/site/Dockerfile-site
+       # Prepare skillcloud-site
+       - src=nginx.conf dest=/skillcloud-nginx/balance/nginx.conf
+       - src=Dockerfile-balance dest=/skillcloud-nginx/balance/Dockerfile-balance
+
+   - name: Build image BaLance
      docker_image:
-        name: Site
-        repository: /skillcloud-nginx/Dockerfile-site
-        push: true
-        source: local
+       path: /skillcloud-nginx/balance
+       name: balance
+       tag: balance
+
+   - name: Build image SITE
+     docker_image:
+       path: /skillcloud-nginx/site
+       name: site
+       tag: site
 
    - name: docker-compose up
      shell:
