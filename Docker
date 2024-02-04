@@ -67,14 +67,14 @@
 
    - name: Copying files needed to build images
      copy:
-       src: /root/skill/{{ item.src }}
+       src: /skill_hmao/{{ item.src }}
        dest: /skillcloud-nginx/{{ item.dest }}/Dockerfile
      loop:
        - { src: Dockerfile-site, dest: site }
        - { src: Dockerfile-balance, dest: balance }
    - name: Copying files needed to build images
      copy:
-       src: /root/skill/{{ item.src }}
+       src: /skill_hmao/{{ item.src }}
        dest: /skillcloud-nginx/{{ item.dest }}
      loop:
        - { src: index.html, dest: site }
