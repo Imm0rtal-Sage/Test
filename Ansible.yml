@@ -9,18 +9,6 @@
       dest: /skill_hmao
       clone: yes
 
-   - name: "Copy to skillcloud-nginx"
-     copy:
-        src: /skill_hmao/{{ item }}
-        dest: /skillcloud-nginx/{{ item }}
-     loop:
-        - docker-compose.sh
-        - docker-compose.yml
-        - Dockerfile-balance
-        - Dockerfile-site
-        - index.html
-        - nginx.conf
-
    - name: Decrypt Users File
      shell: ansible-vault decrypt --vault-id /skill_hmao/hmao-yarulin/password /skill_hmao/Users/privvars.yml
 
@@ -180,8 +168,15 @@
 
    - name: "Copy to skillcloud-nginx"
      copy:
-        src: /skillcloud-nginx
-        dest: /skillcloud-nginx
+        src: /skill_hmao/{{ item }}
+        dest: /skillcloud-nginx/{{ item }}
+     loop:
+        - docker-compose.sh
+        - docker-compose.yml
+        - Dockerfile-balance
+        - Dockerfile-site
+        - index.html
+        - nginx.conf
 
    - name: Image Site
      docker_image:
