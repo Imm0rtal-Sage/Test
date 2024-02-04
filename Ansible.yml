@@ -105,6 +105,8 @@
          - docker-compose
          - firewalld
          - nginx
+         - python3-pip
+         - python3-setuptools
      when: "'Debian' in group_names"
 
    - name: Install CentOS
@@ -115,6 +117,8 @@
          - firewalld
          - nginx
          - yum-utils
+         - python3-pip
+         - python3-setuptools
      when: "'Centos' in group_names"
 
    - name: Firewalld Enable
