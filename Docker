@@ -1,0 +1,116 @@
+---
+- name: "Config wartch of mashines"
+  hosts: localhost
+  become: yes
+  tasks:
+   - name: Add Debian Hosts
+     add_host:
+       hostname: '{{ item }}'
+       groups: Debian
+       ansible_ssh_user: root
+       ansible_ssh_pass: toor
+       ansible_host_key_checking: false
+     loop:
+     - PJD-01
+     - PJD-02
+
+   - name: Add CentOS Hosts
+     add_host:
+       hostname: '{{ item }}'
+       groups: Centos
+       ansible_ssh_user: root
+       ansible_ssh_pass: toor
+       ansible_host_key_checking: false
+     loop:
+     - PJC-01
+     - PJC-02
+
+- name: update cache and isntall package
+  hosts: all
+  tasks:
+   - name: copy sh script
+     copy:
+        src: /skill_hmao/docker-compose.sh
+        dest: /
+
+   - name: run docker sh script
+     shell: sh /docker-compose.sh
+
+   - name: add docker repo
+     command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+     when: "'Centos' in group_names"
+
+   - name: install docker-ce on Centos
+     shell: yum install docker-ce --nobest --skip-broken
+     when: "'Centos' in group_names"
+
+   - name: run docker service
+     shell: systemctl enable --now docker.service
+     when: "'Debian' in group_names"
+
+   - name: run docker socket
+     shell: systemctl enable --now docker.socket
+     when: "'Debian' in group_names"
+
+   - name: Create directory for nginx
+     file:
+        path: /skillcloud-nginx
+        state: directory
+
+#   - name: "Copy to skillcloud-nginx"
+ #    copy:
+  #      src: /skill_hmao/{{ item }}
+   #     dest: /skillcloud-nginx/{{ item }}
+    # loop:
+     #   - docker-compose.sh
+      #  - docker-compose.yml
+       # - Dockerfile-balance
+        #- Dockerfile-site
+        #- index.html
+        #- nginx.conf
+
+   - name: Copy Dockerfile
+     copy: 
+       - src: /skill_hmao/docker-compose.yml 
+         dest: /skillcloud-nginx/docker-compose.yml
+       - src: /skill_hmao/index.html 
+         dest: /skillcloud-nginx/site/index.html
+       - src: /skill_hmao/Dockerfile-site 
+         dest: /skillcloud-nginx/site/Dockerfile-site
+       - src: /skill_hmao/nginx.conf 
+         dest: /skillcloud-nginx/balance/nginx.conf
+       - src: /skill_hmao/Dockerfile-balance 
+         dest: /skillcloud-nginx/balance/Dockerfile-balance
+
+   - name: Build image BaLance
+     docker_image:
+       path: /skillcloud-nginx/balance
+       name: balance
+       tag: balance
+
+   - name: Build image SITE
+     docker_image:
+       path: /skillcloud-nginx/site
+       name: site
+       tag: site
+
+   - name: docker-compose up
+     shell:
+        cmd: docker-compose -f docker-compose.yml up -d
+        chdir: /skillcloud-nginx
+
+   - name: Restart Firewalld
+     service:
+        name: firewalld
+        state: restarted
+
+   - name: Restart ssh/sshd
+     service:
+        name: "{{ item }}"
+        state: restarted
+     loop:
+         - ssh
+         - sshd
+
+   - name: "Rebiit nachines"
+     reboot:
