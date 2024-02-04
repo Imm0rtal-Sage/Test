@@ -164,18 +164,38 @@
 
    - name: Create directory for nginx
      file:
-        path: /skillcloud-nginx
-        state: directory
-
-   - name: "Copy to skillcloud-nginx"
-     copy:
-        src: /skill_hmao/{{ item }}
-        dest: /skillcloud-nginx/{{ item }}
+       path: "{{ item }}"
+       state: directory
      loop:
-        - Dockerfile-balance
-        - Dockerfile-site
-        - index.html
-        - nginx.conf
+       - /skillcloud-nginx
+       - /skillcloud-nginx/site
+       - /skillcloud-nginx/balance
+
+   - name: Copying files needed to build images
+     copy:
+       src: /skill_hmao/{{ item.src }}
+       dest: /skillcloud-nginx/{{ item.dest }}/Dockerfile
+     loop:
+       - { src: Dockerfile-site, dest: site }
+       - { src: Dockerfile-balance, dest: balance }
+
+   - name: Copying files needed to build images
+     copy:
+       src: /skill_hmao/{{ item.src }}
+       dest: /skillcloud-nginx/{{ item.dest }}
+     loop:
+       - { src: index.html, dest: site }
+       - { src: nginx.conf, dest: balance }
+
+ #  - name: "Copy to skillcloud-nginx"
+  #   copy:
+   #     src: /skill_hmao/{{ item }}
+    #    dest: /skillcloud-nginx/{{ item }}
+     #loop:
+      #  - Dockerfile-balance
+       # - Dockerfile-site
+        #- index.html
+        #- nginx.conf
 
    - name: Build image BaLance
      command: docker build /skillcloud-nginx/balance/ -t balance:balance
