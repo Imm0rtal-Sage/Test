@@ -28,14 +28,6 @@
 - name: update cache and isntall package
   hosts: all
   tasks:
-   - name: copy sh script
-     copy:
-        src: /skill_hmao/docker-compose.sh
-        dest: /
-
-   - name: run docker sh script
-     shell: sh /docker-compose.sh
-
    - name: add docker repo
      command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
      when: "'Centos' in group_names"
@@ -57,42 +49,45 @@
         path: /skillcloud-nginx
         state: directory
 
-#   - name: "Copy to skillcloud-nginx"
- #    copy:
-  #      src: /skill_hmao/{{ item }}
-   #     dest: /skillcloud-nginx/{{ item }}
-    # loop:
-     #   - docker-compose.sh
-      #  - docker-compose.yml
-       # - Dockerfile-balance
-        #- Dockerfile-site
-        #- index.html
-        #- nginx.conf
+   - name: copy sh script
+     copy:
+        src: /skill_hmao/docker-compose.sh
+        dest: /skillcloud-nginx
 
-   - name: Copy Dockerfile
-     copy: 
-       - src: /skill_hmao/docker-compose.yml 
-         dest: /skillcloud-nginx/docker-compose.yml
-       - src: /skill_hmao/index.html 
-         dest: /skillcloud-nginx/site/index.html
-       - src: /skill_hmao/Dockerfile-site 
-         dest: /skillcloud-nginx/site/Dockerfile-site
-       - src: /skill_hmao/nginx.conf 
-         dest: /skillcloud-nginx/balance/nginx.conf
-       - src: /skill_hmao/Dockerfile-balance 
-         dest: /skillcloud-nginx/balance/Dockerfile-balance
+   - name: run docker sh script
+     shell: sh /docker-compose.sh
 
-   - name: Build image BaLance
+   - name: Create a directory /skillcloud-nginx/{site,balance}
+     file:
+       path: /skillcloud-nginx/{{ item }}
+       state: directory
+     loop:
+       - site
+       - balance
+
+   - name: Copying files needed to build images
+     copy:
+       src: /root/skill/{{ item.src }}
+       dest: /skillcloud-nginx/{{ item.dest }}/Dockerfile
+     loop:
+       - { src: Dockerfile-site, dest: site }
+       - { src: Dockerfile-balance, dest: balance }
+   - name: Copying files needed to build images
+     copy:
+       src: /root/skill/{{ item.src }}
+       dest: /skillcloud-nginx/{{ item.dest }}
+     loop:
+       - { src: index.html, dest: site }
+       - { src: nginx.conf, dest: balance }
+
+   - name: Build images on a VM using Dockerfile in the skillcloud-nsinx directory
      docker_image:
-       path: /skillcloud-nginx/balance
-       name: balance
-       tag: balance
-
-   - name: Build image SITE
-     docker_image:
-       path: /skillcloud-nginx/site
-       name: site
-       tag: site
+       name: "{{ item.name }}"
+       build:
+         path: /skillcloud-nginx/{{ item.path }}
+     loop:
+       - { name: site, path: site }
+       - { name: balance, path: balance }
 
    - name: docker-compose up
      shell:
