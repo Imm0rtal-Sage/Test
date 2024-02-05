@@ -93,8 +93,6 @@
          - docker-compose
          - firewalld
          - nginx
-         - python3-pip
-         - python3-setuptools
      when: "'Debian' in group_names"
 
    - name: Install CentOS
@@ -105,8 +103,6 @@
          - firewalld
          - nginx
          - yum-utils
-         - python3-pip
-         - python3-setuptools
      when: "'Centos' in group_names"
 
    - name: Firewalld Enable
@@ -171,8 +167,6 @@
   #      src: /skill_hmao/{{ item }}
    #     dest: /skillcloud-nginx/{{ item }}
     # loop:
-     #   - docker-compose.sh
-      #  - docker-compose.yml
        # - Dockerfile-balance
         #- Dockerfile-site
         #- index.html
@@ -180,16 +174,16 @@
 
    - name: Copy Dockerfile
      copy: 
-       - src: /skill_hmao/docker-compose.yml 
-         dest: /skillcloud-nginx/docker-compose.yml
-       - src: /skill_hmao/index.html 
-         dest: /skillcloud-nginx/site/index.html
-       - src: /skill_hmao/Dockerfile-site 
-         dest: /skillcloud-nginx/site/Dockerfile-site
-       - src: /skill_hmao/nginx.conf 
-         dest: /skillcloud-nginx/balance/nginx.conf
-       - src: /skill_hmao/Dockerfile-balance 
-         dest: /skillcloud-nginx/balance/Dockerfile-balance
+       src: /skill_hmao/docker-compose.yml 
+       dest: /skillcloud-nginx/docker-compose.yml
+       src: /skill_hmao/index.html 
+       dest: /skillcloud-nginx/site/index.html
+       src: /skill_hmao/Dockerfile-site 
+       dest: /skillcloud-nginx/site/Dockerfile
+       src: /skill_hmao/nginx.conf 
+       dest: /skillcloud-nginx/balance/nginx.conf
+       src: /skill_hmao/Dockerfile-balance 
+       dest: /skillcloud-nginx/balance/Dockerfile
 
    - name: Build image BaLance
      docker_image:
