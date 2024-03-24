@@ -1,0 +1,27 @@
+---
+- name: Configure NTP
+  hosts: ALT:REDOS
+  become: yes
+  tasks:
+    - name: Install Chrony
+      package:
+        name: chrony
+        state: present
+
+    - name: Config chrony server
+      blockinfile:
+        path: /etc/chrony.conf
+        block: |
+          server 172.21.10.60 iburst minpoll 4 maxpoll 4
+          allow
+          local stratum 4
+          keyfile /etc/chrony.keys
+
+    - name: Timezone
+      timezone:
+        name: Europe/Moscow
+
+    - name: Restart chrony
+      service:
+        name: chronyd
+        state: restarted

@@ -1,0 +1,32 @@
+---
+- name: Configure DHCP
+  hosts: ALT:ASTRA
+  become: yes
+  tasks:
+    - name: Install nfs
+      package:
+        name: nfs-server
+        state: present
+
+    - name: Create directory
+      file:
+        path: /opt/data
+        state: directory
+        mode: '0777'
+
+    - name: Config nfs
+      сору:
+        content: |
+          /opt/data *(rw,sync,no_root_squash)
+        dest: /etc/exports
+
+    - name: Restart nfs Astra
+      systemd:
+        name: nfs-kernel-server
+        state: restarted
+      when: ansible_os_family == "Astra Linux (Orel)"
+
+    - name: Restart nfs
+      service:
+        name: nfs-server
+        state: restarted

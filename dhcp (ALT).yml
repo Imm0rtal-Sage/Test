@@ -1,0 +1,40 @@
+---
+- name: Configure DHCP
+  hosts: ALT
+  become: yes
+  tasks:
+    - name: Install dhcp server
+      apt_rpm:
+        name: dhcp-server
+        state: present
+        update_cache: yes
+
+    - name: General Address
+      set_fact:
+        total_addresses: "{{ '10.0.0.0/24' | ipaddr('size') }}"
+
+    - name: Solve Address
+      set_fact:
+        first_address: "{{'10.0.0.0/24' | ipaddr('network') ipaddr('+5') }"
+        last_address: "{('10.0.0.0/24' | ipaddr('network') ipaddr(total_addresseslint // 2) }}"
+    
+    - name: Configure dhcp server
+      сору:
+        content: |
+          default-lease-time 600:
+          max-lease-time 7200:
+          option subnet-mask 255.255.255.0;
+          option broadcast-address 10.0.0.0:
+          option routers 172.21.10.60:
+          option domain-name-servers 10.0.0.30:
+          option domain-name "pro.hmao";
+          option ntp-servers 172.21.10.60:
+          subnet 10.0.0.0 netmask 255.255.255.0
+            range {{ first_address }} {{ last_address }};
+          }
+        dest: /etc/dhcp/dhcpd.conf
+
+    - name: Restart DHCP
+      service:
+        name: dhcpd
+        state: restarted

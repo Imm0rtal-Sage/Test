@@ -1,0 +1,63 @@
+---
+- name: Configure SSH
+  hosts: Servers
+  become: yes
+  tasks:
+    - name: Install OpenSSh Astra
+      apt:
+        name: openssh-server
+        state: present
+        update_cache: yes
+        force_apt_get: yes
+      when: ansible_os_family == "Astra Linux (Orel)"
+
+    - name: Install OpenSSH Alt
+      apt_rpm:
+        name: openssh-server
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Altlinux"
+
+    - name: Install OpenSSH Redos
+      yum:
+        name: openssh-server
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "REDOS"
+
+    - name: Change SSH port Redos and Astra
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Port'
+        line: "Port 2024"
+        state: present
+      when: ansible_os_family == "REDOS" or ansible_os_family == "Astra Linux (Orel)"
+
+    - name: Change SSH port Alt
+      lineinfile:
+        path: /etc/openssh/sshd_config
+        regexp: '^#?Port'
+        line: "Port 2024"
+        state: present
+      when: ansible_os_family == "Altlinux"
+
+    - name: Restart ssh/sshd
+      service:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+      - ssh
+      - sshd
+
+- name: Replace Port Inventory
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Replace Port
+      lineinfile:
+        path: /opt/ansible/hosts
+        regexp: '^#?Port'
+        line: "Port 2024"
+        state: present
+
+      
