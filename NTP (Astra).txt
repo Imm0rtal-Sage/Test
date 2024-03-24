@@ -1,0 +1,27 @@
+---
+- name: Configure NTP
+  hosts: ASTRA
+  become: yes
+  tasks:
+    - name: Install Chrony
+      package:
+        name: chrony
+        state: present
+
+    - name: Config chrony server
+      blockinfile:
+        path: /etc/chrony/chrony.conf
+        block: |
+          server alt iburst
+          server redos iburst
+          allow 10/8
+          local stratum 4
+
+    - name: Timezone
+      timezone:
+        name: Europe/Moscow
+
+    - name: Restart chrony
+      service:
+        name: chronyd
+        state: restarted

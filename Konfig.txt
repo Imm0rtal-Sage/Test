@@ -1,0 +1,524 @@
+(1. Базовая Настройка)
+[RTR-HQ | RTR-BR]
+config
+hostname (rtr-hq/rtr-br).company.prof
+do commit
+do confirm
+
+do show interface status
+int te1/0/3
+ip address 4.4.4.2/30
+ip firewall disable
+description ISP
+exit
+
+domain name company.prof
+domain name-server 4.4.4.1
+
+ip route 0.0.0.0/0 4.4.4.1
+do commit
+do confirm
+
+int te1/0/3.100
+ip firewall disable
+ip address 10.0.10.1/27
+description vlan100
+exit
+
+[SW-HQ|SW-BR|SRV-HQ|SRV-BR|CLI-HQ|CLI-BR]
+sudo su
+sudo hostnamectl set-hostname <name>.company.prof;exec bash
+
+[SRV-HQ|SRV-BR]
+ip -c --br a
+nano /etc/network/interfaces
+	iface eth0 inet manual
+	auto eth0
+ip addr add 10.0.10.2/27 dev eth0
+ip route add 0.0.0.0/0 via 10.0.10.1
+nano /etc/sysctl.conf
+	net.ipv4.ip_forward=1
+echo nameserver 8.8.8.8 > /etc/resolv.conf
+systemctl restart networking
+ip link set up dev eth
+
+[SRV-HQ | SRV-BR]
+adduser sshuser
+passwd sshuser
+P@ssw0rd
+P@ssw0rd
+echo "sshuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+usermod -aG wheel sshuser
+sudo -i
+
+[SRV-HQ | SRV-BR]
+mkdir /home/sshuser
+chown sshuser:sshuser /home/sshuser
+cd /home/sshuser
+mkdir -p .ssh/
+chmod 700 .ssh
+touch .ssh/authorized_keys
+chmod 600 .ssh/authorized_keys
+chown sshuser:sshuser .ssh/authorized_keys
+
+[CLI-HQ | CLI-BR]
+ssh-keygen -t rsa -b 2048 -f srv_ssh_key
+mkdir .ssh
+mv srv_ssh_key* .ssh/
+nano .ssh/config
+	Host srv-hq
+        	HostName 10.0.10.2
+        	User sshuser
+        	IdentityFile ~/.ssh/srv_ssh_key
+        	Port 2023
+	Host srv-br
+        	HostName 10.0.20.2
+        	User sshuser
+        	IdentityFile ~/.ssh/srv_ssh_key
+        	Port 2023
+chmod 600 .ssh/config
+ssh-copy-id -i .ssh/srv_ssh_key.pub sshuser@10.0.10.2
+ssh-copy-id -i .ssh/srv_ssh_key.pub sshuser@10.0.20.2
+
+[SRV-HQ | SRV-BR]
+nano /etc/ssh/sshd_config
+	Port 2023
+	PermitRootLogin no
+	PasswordAuthentication no
+	PubkeyAuthentication yes
+	AuthorizedKeysFile .ssh/authorized_keys
+	AllowUsers sshuser
+systemctl restart sshd
+
+(2. Настройка дисковой подсистемы)
+[SRV-HQ]
+gdisk /dev/sdb
+o - y
+n - 1 - enter - enter - 8e00
+p
+w - y
+pvcreate /dev/sd{b,c}1
+vgcreate vg01 /dev/sd{b,c}1
+lvcreate -l 100%FREE -n lvmirror -m1 vg01
+mkfs.ext4 /dev/vg01/lvmirror
+mkdir /opt/data
+echo "/dev/vg01/lvmirror /opt/data ext4 defaults 0 0" >> /etc/fstab
+mount -av
+df -h
+
+[SRV-BR]
+gdisk /dev/sdb
+o - y
+n - 1 - enter - enter - 8e00
+p
+w - y
+pvcreate /dev/sd{b,c}1
+vgcreate vg01 /dev/sd{b,c}1
+lvcreate -i2 -l 100%FREE -n lvstreped vg01
+mkfs.ext4 /dev/vg01/lvstriped
+cryptsetup luksFormat /dev/vg01/lvstriped
+cryptsetup luksOpen /dev/vg01/lvstriped lvstriped
+mkfs.ext4 /dev/mapper/lvstriped
+mkdir /opt/data
+echo "/dev/mapper/lvstriped /opt/data ext4 defaults 0 0" >> /etc/fstab
+echo "/dev/mapper/lvstriped /opt/data ext4 defaults 0 0" >> /etc/crypttab
+mount -av
+reboot
+df -h 
+lsblk
+
+(3. Настройка коммутации)
+[SW-HQ|SW-BR]
+apt-get update
+apt-get install -y openvswitch
+systemctl enable --now openvswitch
+ip link add link eth2 name mgmt type vlan id 300
+ip link set dev mgmt up
+ip addr add 10.0.10.66/27 dev mgmt
+ip route add 0.0.0.0/0 via 10.0.10.65
+ovs-vsctl add-br ovs0
+ovs-vsctl add-port ovs0 mgmt -- set interface mgmt type=internal
+ovs-vsctl add-port ovs0 eth0 tag=100
+ovs-vsctl add-port ovs0 eth1 tag=200
+ovs-vsctl add-port ovs0 eth2
+ovs-vsctl set port mgmt tag=300
+ovs-vsctl set port eth2 trunks=100,200,300
+systemctl restart networking
+modprobe 8021q
+echo "8021q" | tee -a /etc/modules
+
+(4. Установка и настройка сервера баз данных)
+[SRV-HQ]
+apt-get install -y postgresql postgresql-contrib
+/etc/init.d/postgresql initdb
+systemctl enable --now postgresql
+nano /var/lib/pgsql/data/postgresql.conf
+	listen_addresses = '*'
+psql -U postgres
+CREATE DATABASE prod;
+CREATE DATABASE test;
+CREATE DATABASE dev;
+pgqbench -U postgres -i prod
+pgqbench -U postgres -i test
+pgqbench -U postgres -i dev
+nano /etc/postgresql/9.3/main/pg_hba.conf
+	host all         all 0.0.0.0/0 md5
+	host replication all 0.0.0.0/0 md5
+systemctl restart postgresql
+
+[SRV-BR]
+apt-get install -y postgresql postgresql-contrib
+psql -U produser -h srv-hq -d prod
+psql -U testuser -h srv-hq -d test
+psql -U devuser -h srv-hq -d dev
+
+[SRV-HQ]
+nano /etc/postgresql/9.3/main/postgresql.conf
+	wal_level = replica
+	max_wal_senders = 2
+	max_replication_slots = 2
+	hot_standby = on
+	hot_standby_feedback = on
+systemctl restart postgresql
+
+[SRV-BR]
+systemctl stop postgresql
+rm -rf /var/lib/pgsql/data/*
+pg_basebackup -h 10.0.10.2 -U postgres -D /var/lib/pgsql/data --wal-method=stream --write-recovery-conf
+chown -R postgres:postgres /var/lib/pgsql/data/
+systemctl start postgresql
+
+apt-get install haproxy
+systemctl enable --now haproxy
+nano /etc/haproxy/haproxy.cfg
+	listen psql
+   	   bind *:5000
+   	   mode tcp
+	   option tcplog
+  	   balance roundrobin
+  	   server srv-hq 10.0.10.2:5432 check
+  	   server srv-br 10.0.20.2:5432 check backup
+systemctl restart haproxy
+
+(5. Настройка динамической трансляции адресов)
+[RTR-HQ | RTR-BR]
+config
+security zone public
+exit
+int te1/0/4
+security-zone public
+exit
+object-group network LAN
+ip address-range 10.0.10.1-10.0.10.254
+exit
+object-group network WAN
+ip address-range 4.4.4.2
+exit
+nat source
+pool WAN
+ip address-range 4.4.4.2
+exit
+ruleset SNAT
+to zone public
+rule 1
+match source-address LAN
+action source-nat pool WAN
+enable
+exit
+do commit
+do confirm
+
+(6. Настройка протокола динамической конфигурации хостов)
+[RTR-HQ | RTR-BR]
+configure terminal
+ip dhcp-server pool COMPANY-HQ
+network 10.0.10.32/27
+default-lease-time 3:00:00
+address-range 10.0.10.34-10.0.10.39                  
+default-router 10.0.10.33 
+dns-server 10.0.10.33
+domain-name company.prof
+exit
+ip dhcp-server
+
+[CLI]
+ip link add link eth0 name eth0.200 type vlan id 200
+ip addr add 10.0.10.35/27 dev eth0.200
+ip route add 0.0.0.0/0 via 10.0.10.3
+nano /etc/network/interfaces
+	auto eth0.200
+	allow-hotplug eth0.200
+	iface eth0.200 inet dhcp
+
+(7. Настройка DNS)
+[SRV-HQ]
+apt-get update
+apt-get install -y bind bind-utils
+nano /etc/bind/options.conf
+	listen-on { any; };
+	allow-query { any; };
+	allow-transfer { 10.0.10.2; }; 
+systemctl enable --now bind
+nano /etc/bind/local.conf
+	zone "company.prof" {
+		type master;
+		file "company.db";
+	};
+
+	zone "10.0.10.in-addr.arpa" {
+		type master;
+		file "10.0.10.in-addr.arpa.db";
+	};
+
+	zone "20.0.10.in-addr.arpa" {
+		type master;
+		file "20.0.10.in-addr.arpa.db";
+	};
+cp /etc/bind/zone/{localhost,company.db}
+cp /etc/bind/zone/127.in-addr.arpa /etc/bind/zone/10.0.10.in-addr.arpa.db
+cp /etc/bind/zone/127.in-addr.arpa /etc/bind/zone/20.0.10.in-addr.arpa.db
+chown root:named /etc/bind/zone/company.db
+chown root:named /etc/bind/zone/10.0.10.in-addr.arpa.db
+chown root:named /etc/bind/zone/20.0.10.in-addr.arpa.db
+nano /etc/bind/zone/company.prof
+	company.prof. root.company.prof.
+	2023092600
+	       NS srv-hq.company.prof.
+	       NS srv-br.company.prof.
+	srv-hq A 10.0.10.2
+	srv-br A 10.0.20.2
+	rtr-hq A 10.0.10.1
+	rtr-hq A 10.0.10.33
+	rtr-hq A 10.0.10.65
+	rtr-br A 10.0.20.1
+	rtr-br A 10.0.20.33
+	rtr-br A 10.0.20.65
+	sw-hq  A 10.0.10.66
+	sw-br  A 10.0.20.66
+	dbms CNAME sw-hq.company.prof.
+nano /etc/bind/zone/10.0.10.in-addr.arpa.db
+	company.prof. root.company.prof.
+	2023092600
+	1  PTR rtr-hq.company.prof.
+	33 PTR rtr-hq.company.prof.
+	65 PTR rtr-hq.company.prof.
+	2  PTR srv-hq.company.prof.
+	66 PTR sw-hq.company.prof.
+cp /etc/bind/zone/10.0.10.in-addr.arpa.db /etc/bind/zone/20.0.10.in-addr.arpa.db
+nano /etc/bind/zone/20.0.10.in-addr.arpa.db
+	company.prof. root.company.prof.
+	2023092600
+	1  PTR rtr-br.company.prof.
+	33 PTR rtr-br.company.prof.
+	65 PTR rtr-br.company.prof.
+	2  PTR srv-br.company.prof.
+	66 PTR sw-br.company.prof.
+named-checkconf -z
+
+[SRV-BR]
+apt-get update
+apt-get install -y bind bind-utils
+nano /etc/bind/options.conf
+	listen-on { any; };
+	allow-query { any; };
+	allow-transfer { none; };
+systemctl enable --now bind
+nano /etc/bind/local.conf
+	zone "company.prof" {
+		type slave;
+		file "slave/company.db";
+		masters { 10.0.10.2; };
+	};
+
+	zone "10.0.10.in-addr.arpa" {
+		type slave;
+
+		file "slave/10.0.10.in-addr.arpa.db";
+		masters { 10.0.10.2; };
+	};
+
+	zone "20.0.10.in-addr.arpa" {
+		type slave;
+		file "slave/20.0.10.in-addr.arpa.db";
+		masters { 10.0.10.2; };
+	};
+nano /etc/resolv.conf
+	search company.prof
+	nameserver 10.0.10.2
+	nameserver 10.0.20.2
+systemctl restart network
+systemctl enable --now bind
+control bind-slave enabled
+systemctl restart bind
+
+(8. Настройка узла управления Ansible)
+[SRV-BR]
+apt-get install -y ansible sshpass
+nano /etc/ansible/inventory.yml
+Networking:
+  hosts:
+    rtr-hq:
+      ansible_host: 10.0.10.1
+      ansible_user: admin
+      ansible_password: admin
+      ansible_port: 22
+    rtr-br:
+      ansible_host: 10.0.20.1
+      ansible_user: admin
+      ansible_password: admin
+      ansible_port: 22
+Servers:
+  hosts:
+    srv-hq:
+      ansible_host: 10.0.10.2
+      ansible_ssh_private_key_file: ~/.ssh/srv_ssh_key
+      ansible_user: sshuser
+      ansible_port: 2023
+    srv-br:
+      ansible_host: 10.0.20.2
+      ansible_ssh_private_key_file: ~/.ssh/srv_ssh_key
+      ansible_user: sshuser
+      ansible_port: 2023
+Clients:
+  hosts:
+    cli-hq:
+      ansible_host: 10.0.10.34
+      ansible_user: cli
+      ansible_password: P@ssw0rd
+      ansible_port: 22
+    cli-br:
+      ansible_host: 10.0.20.34
+      ansible_user: cli
+      ansible_password: P@ssw0rd
+      ansible_port: 22
+nano /etc/ansible/ansible.cfg
+	inventory = /etc/ansible/inventory.yml
+	host_key_checking = false
+nano /etc/ansible/gathering.yml
+---
+- name: show ip and hostname
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: print ip and hostname
+    debug:
+      msg: "{{ ansible_hostname }} - {{ ansible_default_ipv4.address }}"
+
+  - name: create file
+    lineinfile:
+      path: "/etc/ansible/output.yml"
+      line: "{{ output.msg }}"
+
+(9. Настройка защищенного соединения)
+[RTR-HQ | RTR-BR]
+tunnel gre 1
+  ttl 16
+  ip firewall disable
+  local address 4.4.4.2
+  remote address 5.5.5.2
+  ip address 1.1.1.1/30
+  enable
+  exit
+security zone-pair public self
+  rule 1/2/3/4/5
+    description "ICMP/GRE/ESP/AH/OSPF"
+    action permit
+    match protocol icmp/gre/esp/ah/ospf
+    enable
+    exit
+  exit
+security ike proposal ike_prop1
+  authentication algorithm md5
+  encryption algorithm aes128
+  dh-group 2
+  exit
+security ike policy ike_pol1
+  pre-shared-key ascii-text P@ssw0rd
+  proposal ike_prop1
+  exit
+security ike gateway ike_gw1
+  ike-policy ike_pol1
+  local address 4.4.4.2
+  local network 4.4.4.2/32 protocol gre 
+  remote address 5.5.5.2
+  remote network 5.5.5.2/32 protocol gre 
+  mode policy-based
+  exit
+security ipsec proposal ipsec_prop1
+  authentication algorithm md5
+  encryption algorithm aes128
+  pfs dh-group 2
+  exit
+security ipsec policy ipsec_pol1
+  proposal ipsec_prop1
+  exit
+security ipsec vpn ipsec1
+  ike establish-tunnel route
+  ike gateway ike_gw1
+  ike ipsec-policy ipsec_pol1
+  enable
+  exit
+router ospf 1
+  area 0.0.0.0
+    enable
+  exit
+  enable
+  exit
+tunnel gre 1
+  ip ospf instance 1
+  ip ospf
+  exit
+interface te1/0/3.100/200/300
+  ip ospf instance 1
+  ip ospf
+  exit
+sh ip ospf neighbors
+sh ip route
+
+(10. Конфигурация доменного котроллера на базе FreeIPA)
+[SRV-HQ]
+apt-get update
+apt-get install -y haveged
+systemctl enable --now haveged
+apt-get install -y freeipa-server
+ipa-server-install
+	no
+	srv-hq.company.prof
+	company.prof
+	COMPANY.PROF
+	P@ssw0rd
+	P@ssw0rd
+	COMPANY
+	no
+	yes
+ipactl status
+kinit admin
+	P@ssw0rd
+klist
+for i in {1..30};do 
+	echo "P@ssw0rd" | ipa user-add user$i --first=User --last=$i --password;
+	ipa user-mod user$i --setattr=krbPasswordExpiration=20251225011529Z;
+done
+ipa user-find --all | grep login
+ipa group-add group1
+ipa group-add group2
+ipa group-add group3
+for i in {1..10}; do
+	ipa group-add-member group1 --users=user$i;
+done
+for i in {11..20}; do
+	ipa group-add-member group2 --users=user$i;
+done
+for i in {21..30}; do
+	ipa group-add-member group3 --users=user$i;
+done
+
+[CLI-HQ]
+apt-get update
+apt-get install -y freeipa-client zip
+ipa-client-install --mkhomedir
+	yes
+	yes
+	admin
+	P@ssw0rd
+reboot
