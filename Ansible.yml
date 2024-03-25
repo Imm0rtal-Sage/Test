@@ -13,3 +13,12 @@
      - {hostname: alt, groups: ALT}
      - {hostname: redos, groups: REDOS}
      - {hostname: astra, groups: ASTRA}
+
+    - name: Add Servers Hosts
+      add_host:
+        hostname: '{{ item.hostname }}'
+        groups: "Servers:children"
+      loop:
+      - ALT
+      - ASTRA
+      - REDOS
