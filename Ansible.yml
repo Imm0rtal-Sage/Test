@@ -3,12 +3,17 @@
   hosts: localhost
   become: yes
   tasks:
+   - name: Create inventory
+     file:
+       path: /opt/ansible/hosts
+       state: touch
+    
    - name: Add Hosts
-     add_host:
-       hostname: '{{ item.hostname }}'
-       groups: '{{ item.groups }}'
-       ansible_ssh_port: 22
-       ansible_ssh_private_key_file: /opt/keys/'{{ item.hostname }}'.key
+     blockinfile:
+       path: /opt/ansible/group_vars/all
+       block: |
+       ['{{ item.groups }}']
+       hostname: '{{ item.hostname }}' ansible_ssh_private_key_file: /opt/keys/'{{ item.hostname }}'.key
      with_items:
      - {hostname: alt, groups: ALT}
      - {hostname: redos, groups: REDOS}
