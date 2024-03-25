@@ -12,17 +12,15 @@
      blockinfile:
        path: /opt/ansible/hosts
        block: |
-         ['{{ item.groups }}']
-         hostname: '{{ item.hostname }}' ansible_ssh_private_key_file: /opt/keys/'{{ item.hostname }}'.key
-     with_items:
-     - {hostname: alt, groups: ALT}
-     - {hostname: redos, groups: REDOS}
-     - {hostname: astra, groups: ASTRA}
+         [ALT]
+         alt ansible_ssh_private_key_file:/opt/keys/alt.key
 
-   - name: Add Servers Hosts
-     blockinfile:
-       path: /opt/ansible/hosts
-       block: |
+         [REDOS]
+         redos ansible_ssh_private_key_file:/opt/keys/redos.key
+
+         [ASTRA]
+         astra ansible_ssh_private_key_file:/opt/keys/astra.key
+         
          [Servers:children]
          ALT
          ASTRA
