@@ -4,16 +4,19 @@
   become: yes
   tasks:
    - name: Create inventory
-     file:
-       path: /opt/ansible/hosts
-       state: touch
+     copy:
+       src: /etc/ansible/hosts
+       dest: /opt/ansible/
 
    - name: Configure inventory server
      lineinfile:
        path: /etc/ansible/ansible.cfg
        regexp: #?#inventory.*
-       line: inventory = /opt/ansible/hosts
+       line: '{{ item }}'
        state: present
+     loop:
+     - [defaults]
+     - inventory = /opt/ansible/hosts
        
    - name: Add Hosts
      blockinfile:
