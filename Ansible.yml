@@ -10,9 +10,9 @@
 
    - name: Configure inventory server
      lineinfile:
-       path: /opt/ansible/ansible.cfg
+       path: /etc/ansible/ansible.cfg
        regexp: #?#inventory.*
-       line: inventory = /etc/ansible/hosts
+       line: inventory = /opt/ansible/hosts
        state: present
        
    - name: Add Hosts
