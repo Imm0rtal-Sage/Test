@@ -10,7 +10,7 @@
 
    - name: Configure inventory server
      lineinfile:
-       path: /etc/ansible/ansible.cfg
+       path: /opt/ansible/ansible.cfg
        regexp: #?#inventory.*
        line: inventory = /etc/ansible/hosts
        state: present
